@@ -1,10 +1,9 @@
 use anyhow::anyhow;
-use teloxide::prelude::*;
+use teloxide::{dispatching::UpdateFilterExt, prelude::*};
 
-//type MessageEvent = UpdateWithCx<AutoSend<Bot>, Message>;
 type Result<T> = anyhow::Result<T>;
 
-async fn handler(bot: AutoSend<Bot>, message: Message) -> Result<()> {
+async fn on_message(bot: AutoSend<Bot>, message: Message) -> Result<()> {
     let sender_chat = message
         .sender_chat()
         .ok_or_else(|| anyhow!("No sender chat"))?;
@@ -40,5 +39,16 @@ async fn handler(bot: AutoSend<Bot>, message: Message) -> Result<()> {
 #[tokio::main]
 async fn main() {
     let bot = Bot::from_env().auto_send();
-    teloxide::repl(bot, handler).await
+
+    let handler =
+        Update::filter_message().endpoint(|msg: Message, bot: AutoSend<Bot>| async move {
+            let _ = on_message(msg, bot).await;
+            respond(())
+        });
+
+    Dispatcher::builder(bot, handler)
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
 }
